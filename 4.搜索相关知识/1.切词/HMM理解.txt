@@ -1,0 +1,113 @@
+```python
+### HMM 模型 数据 ###
+ 
+states = ('B', 'M', 'E', 'S')
+
+observations = ('东', '方', '明', '珠', '广', '播','电','视', '塔' ... )
+
+start_probability = {'B': 0.95, 'M': 0.0, 'E': 0.0, 'S': 0.05}
+
+transition_probability = {
+	'B': 	{ 'B': 0.0, 'M': 0.7, 'E': 0.3, 'S': 0.0} 
+	'M':    { 'B': 0.0, 'M': 0.8, 'E': 0.2, 'S': 0.0} 
+	'E': 	{ 'B': 0.0, 'M': 0.0, 'E': 0.0, 'S': 0.0} 
+    'S': 	{ 'B': 0.0, 'M': 0.0, 'E': 0.0, 'S': 0.0} 
+    }
+
+emission_probability = {
+    'B' : {'word1': 0.01, 'word2': 0.02, 'word3': 0.03 ...},
+    'M' : ...,
+    'E' : ...,
+    'S' : ...,
+}
+```
+
+从中文分词角度考虑：
+BMES 分别表示某个字是一个词的开头，中间，结尾，或者单字词
+所以对于一个字来说有BMES 四种状态
+BMES 为隐马尔科夫链的隐状态
+
+Obervations 为训练语料中的所有字，即为我们可以观察到的所有状态，即显状态
+
+start_probability 表示为输出句子第一个字状态的可能性，基于常识，第一个字必然是词语的开头，也有少许可能是单字词
+transition_probability 表示从一种状态到另外一种状态的概率。
+emission_probability 表示为隐状态对应到每种显状态的概率。
+
+另外还需要考虑边界条件：【对于每个句子，最后一个字的状态只可能是 E 或者 S，不可能是 M 或者 B】
+
+
+基于做过分词的高德POI，可以很容易训练出以上这些模型值。
+再根据viterbi函数，可以算出一个输入句子的隐状态序列，也就是BMES序列，达到分词目的
+
+
+# 打印路径概率表
+~~~python
+def print_dptable(V):
+    print "    ",
+    for i in range(len(V)): print "%7d" % i,
+    print
+
+```
+for y in V[0].keys():
+    print "%.5s: " % y,
+    for t in range(len(V)):
+        print "%.7s" % ("%f" % V[t][y]),
+    print
+```
+
+ 
+
+def viterbi(obs, states, start_p, trans_p, emit_p):
+    """
+
+    ```
+    :param obs:观测序列
+    :param states:隐状态
+    :param start_p:初始概率（隐状态）
+    :param trans_p:转移概率（隐状态）
+    :param emit_p: 发射概率 （隐状态表现为显状态的概率）
+    :return:
+    """
+    # 路径概率表 V[时间][隐状态] = 概率
+    V = [{}]
+    # 一个中间变量，代表当前状态是哪个隐状态
+    path = {}
+ 
+    # 初始化初始状态 (t == 0)
+    for y in states:
+        V[0][y] = start_p[y] * emit_p[y][obs[0]]
+        path[y] = [y]
+
+    # 对 t > 0 跑一遍维特比算法
+    for t in range(1, len(obs)):
+        V.append({})
+        newpath = {}
+
+        for y in states:
+            # 概率 隐状态 =    前状态是y0的概率 * y0转移到y的概率 * y表现为当前状态的概率
+            (prob, state) = max([(V[t - 1][y0] * trans_p[y0][y] * emit_p[y][obs[t]], y0) for y0 in states])
+            # 记录最大概率
+            V[t][y] = prob
+            # 记录路径
+            newpath[y] = path[state] + [y]
+
+        # 不需要保留旧路径
+        path = newpath
+ 
+print_dptable(V)
+(prob, state) = max([(V[len(obs) - 1][y], y) for y in states])
+return (prob, path[state])
+```
+
+def example():
+    return viterbi(observations,
+                   states,
+                   start_probability,
+                   transition_probability,
+                   emission_probability)
+
+print example()
+~~~
+
+
+请参考 http://blog.csdn.net/shenxiaoming77/article/details/51511335
